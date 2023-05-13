@@ -1,0 +1,2 @@
+from .crypto_asset.crypto_assets_handlers import register_handlers_crypto
+from .deposits.deposits_handlers import register_handlers_deposits
