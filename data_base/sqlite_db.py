@@ -170,10 +170,10 @@ async def update_close_deposit(user_id, deposit_id):
 async def select_person_deposits_for_capitalization(user_id: int) -> list:
     async with sq.connect('data_base/crypto_transactions.db') as base:
         async with base.cursor() as curs:
-            await curs.execute(f'SELECT id, date_open, percent, percent_capitalization FROM main_deposits '
+            await curs.execute(f'SELECT id, date_open, percent, percent_capitalization, description FROM main_deposits '
                                f'WHERE person_id = {user_id} AND is_open = 1')
             rows = await curs.fetchall()
-    data = [row[:4] for row in rows]
+    data = [row[:5] for row in rows]
     return data
 
 

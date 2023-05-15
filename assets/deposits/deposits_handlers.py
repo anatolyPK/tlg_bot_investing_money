@@ -158,16 +158,25 @@ async def get_deposit_id_for_close(message: types.Message, state=FSMContext):
     await message.answer('Вклад закрыт!', reply_markup=kb_deposit)
 
 
-
 async def open_deposit_window(message: types.Message):
     depos_descr_and_size = await sqlite_db.count_deposits_money(message.from_user.id)
+    mes = ''
     for descr, size in depos_descr_and_size.items():
-        await message.answer(f'{descr}    {size} рублей', reply_markup=kb_deposit)
+        mes += f'{descr}    {size} рублей\n'
 
+    await message.answer(mes, reply_markup=kb_deposit)
+
+
+async def start_deposit_window(message: types.Message):
+    total_sum = await sqlite_db.count_deposits_money(message.from_user.id)
+    total = sum([size for size in total_sum.values()])
+    await message.answer(f'Общая сумма вкладов - {total}', reply_markup=kb_deposit)
 
 
 def register_handlers_deposits(dp: Dispatcher):#assets hadlers
-    dp.register_message_handler(open_deposit_window, Text(equals='вклады', ignore_case=True))
+    dp.register_message_handler(start_deposit_window, Text(equals='вклады', ignore_case=True))
+
+    dp.register_message_handler(open_deposit_window, Text(equals='активные вклады', ignore_case=True))
 
     dp.register_message_handler(start_add_or_change_deposit, Text(equals='Добавить вклад', ignore_case=True),
                                 state=None)
