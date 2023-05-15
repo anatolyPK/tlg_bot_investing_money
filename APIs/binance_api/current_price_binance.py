@@ -1,6 +1,6 @@
 import aiohttp
 from binance.exceptions import BinanceAPIException
-from create_bot import bot
+# from create_bot import bot
 from binance.client import AsyncClient
 import os
 from keyboards import kb_main_client

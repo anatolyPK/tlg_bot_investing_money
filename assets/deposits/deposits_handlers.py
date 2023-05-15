@@ -5,6 +5,12 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
 from data_base import sqlite_db
 
+
+async def get_id_and_description_of_deposit(user_id):
+    global id_description
+    id_description = await sqlite_db.select_all_person_deposits(user_id)
+
+
 # --------------------------------ADD OR CHANGE DEPOSIT----------------------
 class AddOrChangeDeposit(StatesGroup):
     description = State()
@@ -67,8 +73,7 @@ class AddOrTakeSumFromDeposit(StatesGroup):
 
 async def start_add_or_take_from_deposit(message: types.Message):
     await AddOrTakeSumFromDeposit.deposit_id.set()
-    global id_description
-    id_description = await sqlite_db.select_all_person_deposits(message.from_user.id)
+    await get_id_and_description_of_deposit(message.from_user.id)
     await message.answer('Выберите вклад', reply_markup=generate_open_deposits_button(id_description))
 
 
@@ -104,6 +109,53 @@ async def get_date_add(message: types.Message, state=FSMContext):
     await message.answer('Готово!', reply_markup=kb_deposit)
 
 
+# -----------------------------CHANGE PERCENT---------------------------
+class ChangeDepositPercent(StatesGroup):
+    deposit_id = State()
+    new_percent = State()
+
+
+async def start_change_deposit_percent(message: types.Message):
+    await ChangeDepositPercent.deposit_id.set()
+    await get_id_and_description_of_deposit(message.from_user.id)
+    await message.answer('Выберите вклад', reply_markup=generate_open_deposits_button(id_description))
+
+
+async def get_deposit_id_for_new_percent(message: types.Message, state=FSMContext):
+    for row in id_description:
+        if message.text == row[1]:
+            async with state.proxy() as data:
+                data['deposit_id'] = row[0]
+                break
+    await ChangeDepositPercent.next()
+    await message.answer('Введите новый процент', reply_markup=kb_stop_add)
+
+
+async def get_new_percent(message: types.Message, state=FSMContext):
+    async with state.proxy() as data:
+        await sqlite_db.update_new_percent(message.from_user.id, float(message.text), data['deposit_id'])
+    await state.finish()
+    await message.answer('Готово!', reply_markup=kb_deposit)
+
+
+# -----------------------------CLOSE DEPOSIT-----------------------------
+class CloseDeposit(StatesGroup):
+    deposit_id = State()
+
+
+async def start_close_deposit(message: types.Message):
+    await CloseDeposit.deposit_id.set()
+    await get_id_and_description_of_deposit(message.from_user.id)
+    await message.answer('Выберите вклад', reply_markup=generate_open_deposits_button(id_description))
+
+
+async def get_deposit_id_for_close(message: types.Message, state=FSMContext):
+    for row in id_description:
+        if message.text == row[1]:
+            await sqlite_db.update_close_deposit(message.from_user.id, row[0])
+            break
+    await state.finish()
+    await message.answer('Вклад закрыт!', reply_markup=kb_deposit)
 
 
 
@@ -114,22 +166,30 @@ async def open_deposit_window(message: types.Message):
 
 
 
-
-
-
 def register_handlers_deposits(dp: Dispatcher):#assets hadlers
     dp.register_message_handler(open_deposit_window, Text(equals='вклады', ignore_case=True))
 
-    dp.register_message_handler(start_add_or_change_deposit, Text(equals='Добавить вклад', ignore_case=True), state=None)
+    dp.register_message_handler(start_add_or_change_deposit, Text(equals='Добавить вклад', ignore_case=True),
+                                state=None)
     dp.register_message_handler(get_descriptions, state=AddOrChangeDeposit.description)
     dp.register_message_handler(get_date_open, state=AddOrChangeDeposit.date_open)
     dp.register_message_handler(get_percent, state=AddOrChangeDeposit.percent)
     dp.register_message_handler(get_start_sum, state=AddOrChangeDeposit.start_sum)
     dp.register_message_handler(get_percent_capitalization, state=AddOrChangeDeposit.percent_capitalization)
 
-    dp.register_message_handler(start_add_or_take_from_deposit, Text(equals='внести сумму', ignore_case=True), state=None)
+    dp.register_message_handler(start_add_or_take_from_deposit, Text(equals='внести сумму', ignore_case=True),
+                                state=None)
     dp.register_message_handler(get_deposit_id, state=AddOrTakeSumFromDeposit.deposit_id)
     dp.register_message_handler(get_is_add_or_take, state=AddOrTakeSumFromDeposit.is_add_or_take)
     dp.register_message_handler(get_summ, state=AddOrTakeSumFromDeposit.summ)
     dp.register_message_handler(get_date_add, state=AddOrTakeSumFromDeposit.date_add)
+
+    dp.register_message_handler(start_change_deposit_percent, Text(equals='изменить процент', ignore_case=True),
+                                state=None)
+    dp.register_message_handler(get_deposit_id_for_new_percent, state=ChangeDepositPercent.deposit_id)
+    dp.register_message_handler(get_new_percent, state=ChangeDepositPercent.new_percent)
+
+    dp.register_message_handler(start_close_deposit, Text(equals='закрыть вклад', ignore_case=True),
+                                state=None)
+    dp.register_message_handler(get_deposit_id_for_close, state=CloseDeposit.deposit_id)
 

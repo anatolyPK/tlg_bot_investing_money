@@ -1,5 +1,5 @@
 import aiosqlite as sq
-from create_bot import bot
+# from create_bot import bot
 from APIs import current_price
 from collections import defaultdict
 
@@ -115,10 +115,10 @@ async def add_deposit(user_id: int, description, date_operation, percent, percen
 
 
 @try_connect_sql
-async def add_deposit_transaction(user_id, id_deposit, size, is_add_or_take, date_operetion) -> None:
+async def add_deposit_transaction(user_id, id_deposit, size, is_add_or_take, date_operation) -> None:
         query = f'INSERT INTO deposit_transactions (person_id, id, size, is_add_or_take, date_operation) ' \
                 f'VALUES (?, ?, ?, ?, ?)'
-        values = (user_id, id_deposit, size, is_add_or_take, date_operetion)
+        values = (user_id, id_deposit, size, is_add_or_take, date_operation)
         async with sq.connect('data_base/crypto_transactions.db') as base:
             async with base.cursor() as curs:
                 await curs.execute(query, values)
@@ -142,7 +142,47 @@ async def count_deposits_money(user_id):
         async with base.cursor() as curs:
             await curs.execute(f'SELECT main_deposits.description, deposit_transactions.is_add_or_take, '
                                f'deposit_transactions.size FROM main_deposits, deposit_transactions '
-                               f'WHERE main_deposits.person_id = {user_id} AND main_deposits.id = deposit_transactions.id')
+                               f'WHERE main_deposits.person_id = {user_id} AND main_deposits.is_open = 1 AND '
+                               f'main_deposits.id = deposit_transactions.id')
             async for descr, add_or_take, size in curs:
                 dict_descr_and_size[descr] += size if add_or_take else -size
     return dict_descr_and_size
+
+
+@try_connect_sql
+async def update_new_percent(user_id, new_percent, deposit_id):
+    async with sq.connect('data_base/crypto_transactions.db') as base:
+        async with base.cursor() as curs:
+            await curs.execute(f'UPDATE main_deposits SET percent = {new_percent} WHERE id = {deposit_id} AND '
+                               f'person_id = {user_id}')
+        await base.commit()
+
+
+@try_connect_sql
+async def update_close_deposit(user_id, deposit_id):
+    async with sq.connect('data_base/crypto_transactions.db') as base:
+        async with base.cursor() as curs:
+            await curs.execute(f'UPDATE main_deposits SET is_open = 0 WHERE id = {deposit_id} AND person_id = {user_id}')
+        await base.commit()
+
+
+@try_connect_sql
+async def select_person_deposits_for_capitalization(user_id: int) -> list:
+    async with sq.connect('data_base/crypto_transactions.db') as base:
+        async with base.cursor() as curs:
+            await curs.execute(f'SELECT id, date_open, percent, percent_capitalization FROM main_deposits '
+                               f'WHERE person_id = {user_id} AND is_open = 1')
+            rows = await curs.fetchall()
+    data = [row[:4] for row in rows]
+    return data
+
+
+@try_connect_sql
+async def select_all_uniqle_person_id_for_capitalization():
+    async with sq.connect('data_base/crypto_transactions.db') as base:
+        async with base.cursor() as curs:
+            await curs.execute(f'SELECT DISTINCT person_id FROM main_deposits')
+            rows = await curs.fetchall()
+    unique_id = [int(row[0]) for row in rows]
+    return unique_id
+
