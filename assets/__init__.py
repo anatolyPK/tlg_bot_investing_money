@@ -1,2 +1,3 @@
 from .crypto_asset.crypto_assets_handlers import register_handlers_crypto
 from .deposits.deposits_handlers import register_handlers_deposits
+from .stock_market.stock_market_handlers import register_handlers_stock_market

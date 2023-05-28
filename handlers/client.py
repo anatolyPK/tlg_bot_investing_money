@@ -1,7 +1,7 @@
 from aiogram import types, Dispatcher
 from keyboards import kb_main_client, kb_stop_add
 from aiogram.dispatcher import FSMContext
-from assets import register_handlers_crypto, register_handlers_deposits
+from assets import register_handlers_crypto, register_handlers_deposits, register_handlers_stock_market
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
 from data_base import sqlite_db
@@ -29,5 +29,6 @@ def register_handlers_clients(dp: Dispatcher):#assets hadlers
 
     register_handlers_crypto(dp)
     register_handlers_deposits(dp)
+    register_handlers_stock_market(dp)
 
 
