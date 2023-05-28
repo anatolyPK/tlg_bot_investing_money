@@ -89,19 +89,4 @@ class CreateAndUpdateAllAssets:
         await cls.__update_all_currencies()
 
 
-async def main():
-        await CreateAndUpdateAllAssets.update_all_assets()
-
-
-if __name__ == '__main__':
-#     await CreateAndUpdateAllAssets.bonds()
-    # print(asyncio.run(a.assets_price(type_of_asset='share', figi='BBG005P7Q881')))
-    asyncio.run(main())
-    # b = asyncio.run(a.find_instrument('сегежа'))
-    # for row in b.instruments:
-    #     print(row)
-    # print(b.instruments[0])
-    # # print(b.instruments[0].instrument_type)
-    # print(asyncio.run(a.assets_price(type_of_asset='bond', figi='TCSS0A105SP3')))
-
 

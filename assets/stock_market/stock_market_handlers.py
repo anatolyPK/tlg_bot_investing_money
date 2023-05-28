@@ -5,7 +5,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
 from data_base import sqlite_db
 from APIs.tinkoff_api.tinkoff_client import TinkoffAPI, CreateAndUpdateAllAssets
-from create_bot import dp
+from datetime import datetime
 
 
 # ----------------------------ADD ASSET---------------------------
@@ -16,6 +16,7 @@ class AddAsset(StatesGroup):
     is_buy_or_sell = State()
     price_in_rub = State()
     lot = State()
+    date_operation = State()
 
 
 async def start_add_assets(message: types.Message):
@@ -82,16 +83,41 @@ async def get_price(message: types.Message, state=FSMContext):
 
 
 async def get_lot(message: types.Message, state=FSMContext):
+    date_today = datetime.today().date()
+    await message.answer('Введите дату',
+                         reply_markup=generate_inline_keyboards([[f'{datetime.strftime(date_today, "%d.%m.%Y")}',
+                                                                  f'{datetime.strftime(date_today, "%d.%m.%Y")}']]))
+    async with state.proxy() as data:
+        data['lot'] = int(message.text)
+    await AddAsset.next()
+
+
+async def get_date_from_callback(callback: types.CallbackQuery, state=FSMContext):
     async with state.proxy() as data:
         await sqlite_db.AssetsSQL.add_assets_transaction(figi=data['figi'],
-                                                         person_id=message.from_user.id,
+                                                         person_id=callback.from_user.id,
                                                          is_buy_or_sell=data['is_buy_or_sell'],
                                                          price=data['assets_price'],
-                                                         lot=int(message.text),
-                                                         date_operation='14.01.2023'
+                                                         lot=data['lot'],
+                                                         date_operation=callback.data
                                                          )
-    await message.answer('Готово!', reply_markup=kb_stock)
-    await state.finish()
+
+        await callback.message.answer('Готово!', reply_markup=kb_stock)
+        await state.finish()
+
+
+async def get_date_from_message(message: types.Message, state=FSMContext):
+    async with state.proxy() as data:
+        await sqlite_db.AssetsSQL.add_assets_transaction(figi=data['figi'],
+                                                person_id=message.from_user.id,
+                                                is_buy_or_sell=data['is_buy_or_sell'],
+                                                price=data['assets_price'],
+                                                lot=data['lot'],
+                                                date_operation=message.text
+                                                )
+
+        await message.answer('Готово!', reply_markup=kb_stock)
+        await state.finish()
 
 
 async def start_stock_market_window(message: types.Message):
@@ -113,6 +139,8 @@ def register_handlers_stock_market(dp: Dispatcher):
     dp.register_callback_query_handler(get_operation_type, state=AddAsset.is_buy_or_sell)
     dp.register_message_handler(get_price, state=AddAsset.price_in_rub)
     dp.register_message_handler(get_lot, state=AddAsset.lot)
+    dp.register_callback_query_handler(get_date_from_callback, state=AddAsset.date_operation)
+    dp.register_message_handler(get_date_from_message, state=AddAsset.date_operation)
 
     dp.register_message_handler(refresh_assets, Text(equals='Обновить'))
 

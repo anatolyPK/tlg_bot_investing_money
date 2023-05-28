@@ -22,21 +22,21 @@ async def sql_start():
 
             await base.execute('CREATE TABLE IF NOT EXISTS assets_transactions(figi TEXT, person_id INT, '
                                'is_buy_or_sell BIT, price FLOAT, lot INT, date_operation DATE)')
-            await base.execute('CREATE TABLE IF NOT EXISTS all_bonds(figi TEXT, ticker TEXT, currency TEXT, name TEXT, '
-                               'exchange TEXT, nominal FLOAT, aci_value FLOAT, country_of_risk TEXT, sector TEXT,'
-                               'buy_available_flag BIT, sell_available_flag BIT, floating_coupon_flag BIT,'
+            await base.execute('CREATE TABLE IF NOT EXISTS all_bonds(figi TEXT PRIMARY KEY, ticker TEXT, currency TEXT,'
+                               ' name TEXT, exchange TEXT, nominal FLOAT, aci_value FLOAT, country_of_risk TEXT,'
+                               'sector TEXT, buy_available_flag BIT, sell_available_flag BIT, floating_coupon_flag BIT,'
                                'perpetual_flag BIT, amortization_flag BIT, for_iis_flag BIT, for_qual_investor_flag BIT,'
                                'risk_level TEXT)')
-            await base.execute('CREATE TABLE IF NOT EXISTS all_shares(figi TEXT, ticker TEXT, currency TEXT, name TEXT,'
-                               'lot INT, exchange TEXT, nominal FLOAT, country_of_risk TEXT, '
+            await base.execute('CREATE TABLE IF NOT EXISTS all_shares(figi TEXT PRIMARY KEY, ticker TEXT, currency TEXT,'
+                               'name TEXT,lot INT, exchange TEXT, nominal FLOAT, country_of_risk TEXT, '
                                'sector TEXT, buy_available_flag BIT, sell_available_flag BIT, div_yield_flag BIT,'
                                'for_iis_flag BIT, for_qual_investor_flag BIT, share_type TEXT)')
-            await base.execute('CREATE TABLE IF NOT EXISTS all_etfs(figi TEXT, ticker TEXT, currency TEXT, name TEXT,'
-                               'lot INT, exchange TEXT, fixed_commission FLOAT, focus_type TEXT, country_of_risk TEXT, '
-                               'sector TEXT, buy_available_flag BIT, sell_available_flag BIT,'
+            await base.execute('CREATE TABLE IF NOT EXISTS all_etfs(figi TEXT PRIMARY KEY, ticker TEXT, currency TEXT,'
+                               'name TEXT,lot INT, exchange TEXT, fixed_commission FLOAT, focus_type TEXT,'
+                               'country_of_risk TEXT, sector TEXT, buy_available_flag BIT, sell_available_flag BIT,'
                                'for_iis_flag BIT, for_qual_investor_flag BIT)')
-            await base.execute('CREATE TABLE IF NOT EXISTS all_currencies(figi TEXT, ticker TEXT, currency TEXT, '
-                               'name TEXT, lot INT, exchange TEXT, nominal FLOAT, country_of_risk TEXT, '
+            await base.execute('CREATE TABLE IF NOT EXISTS all_currencies(figi TEXT PRIMARY KEY, ticker TEXT, '
+                               'currency TEXT, name TEXT, lot INT, exchange TEXT, nominal FLOAT, country_of_risk TEXT, '
                                'min_price_increment FLOAT, buy_available_flag BIT, sell_available_flag BIT, '
                                'for_iis_flag BIT, for_qual_investor_flag BIT)')
 
@@ -224,9 +224,9 @@ async def add_deposit(user_id: int, description, date_operation, percent, percen
 class AssetsSQL:
     @staticmethod
     async def add_and_update_bonds(values_of_bonds):
-        query = f'INSERT INTO all_bonds (figi, ticker, currency, name, exchange, nominal, aci_value, country_of_risk,' \
-                f'sector, buy_available_flag, sell_available_flag, floating_coupon_flag, perpetual_flag,' \
-                f'amortization_flag, for_iis_flag, for_qual_investor_flag, risk_level) ' \
+        query = f'INSERT OR REPLACE INTO all_bonds (figi, ticker, currency, name, exchange, nominal, aci_value, ' \
+                f'country_of_risk, sector, buy_available_flag, sell_available_flag, floating_coupon_flag,' \
+                f' perpetual_flag, amortization_flag, for_iis_flag, for_qual_investor_flag, risk_level) ' \
                 f'VALUES ({"?," * 16 + "?"})'
         async with sq.connect('data_base/crypto_transactions.db') as base:
             async with base.cursor() as curs:
@@ -255,12 +255,13 @@ class AssetsSQL:
 
     @staticmethod
     async def add_and_update_shares(values_of_shares):
-        query = f'INSERT INTO all_shares (figi, ticker, currency, name, lot, exchange, nominal, country_of_risk, sector,' \
-                f'buy_available_flag, sell_available_flag, div_yield_flag, for_iis_flag, for_qual_investor_flag,' \
-                f'share_type) VALUES ({"?," * 14 + "?"})'
+        query = f'INSERT OR REPLACE INTO all_shares (figi, ticker, currency, name, lot, exchange, nominal,' \
+                f'country_of_risk, sector, buy_available_flag, sell_available_flag, div_yield_flag, for_iis_flag, ' \
+                f'for_qual_investor_flag, share_type) VALUES ({"?," * 14 + "?"})'
         async with sq.connect('data_base/crypto_transactions.db') as base:
             async with base.cursor() as curs:
                 for row in values_of_shares.instruments:
+                    # if curs.execute('S')
                     values = (
                         row.figi,
                         row.ticker,
@@ -283,8 +284,8 @@ class AssetsSQL:
 
     @staticmethod
     async def add_and_update_etfs(values_of_etfs):
-        query = f'INSERT INTO all_etfs (figi, ticker, currency, name, lot, exchange, fixed_commission, focus_type, ' \
-                f'country_of_risk, sector, buy_available_flag, sell_available_flag, for_iis_flag, ' \
+        query = f'INSERT OR REPLACE INTO all_etfs (figi, ticker, currency, name, lot, exchange, fixed_commission, ' \
+                f'focus_type, country_of_risk, sector, buy_available_flag, sell_available_flag, for_iis_flag, ' \
                 f'for_qual_investor_flag) VALUES ({"?," * 13 + "?"})'
         async with sq.connect('data_base/crypto_transactions.db') as base:
             async with base.cursor() as curs:
@@ -310,9 +311,9 @@ class AssetsSQL:
 
     @staticmethod
     async def add_and_update_currencies(values_of_currincies):
-        query = f'INSERT INTO all_currencies (figi, ticker, currency, name, lot, exchange, nominal, country_of_risk, ' \
-                f'min_price_increment, buy_available_flag, sell_available_flag, for_iis_flag, for_qual_investor_flag)' \
-                f' VALUES ({"?," * 12 + "?"})'
+        query = f'INSERT OR REPLACE INTO all_currencies (figi, ticker, currency, name, lot, exchange, nominal, ' \
+                f'country_of_risk, min_price_increment, buy_available_flag, sell_available_flag, for_iis_flag,' \
+                f'for_qual_investor_flag) VALUES ({"?," * 12 + "?"})'
         async with sq.connect('data_base/crypto_transactions.db') as base:
             async with base.cursor() as curs:
                 for row in values_of_currincies.instruments:
