@@ -50,12 +50,13 @@ async def get_assets(message: types.Message, state=FSMContext):
             await AddAsset.next()
             data['assets_price'] = current_price
             data['figi'] = res[0]
+            data['name'] = res[1]
 
 
 async def get_asset(callback: types.CallbackQuery):
     if callback.data == 'correct':
-        await callback.message.answer('Выберите операцию', reply_markup=generate_inline_keyboards([['Купить', 'buy'],
-                                                                                                  ['Продать', 'sell']]))
+        await callback.message.answer('Выберите операцию', reply_markup=generate_inline_keyboards([['Купить', 1],
+                                                                                                  ['Продать', 0]]))
         await AddAsset.next()
         await callback.answer()
     elif callback.data == 'incorrect':
@@ -78,7 +79,7 @@ async def get_operation_type(callback: types.CallbackQuery, state=FSMContext):
 async def get_price(message: types.Message, state=FSMContext):
     await message.answer('Введите количество', reply_markup=kb_stop_add)
     async with state.proxy() as data:
-        data['price_in_rub'] = int(message.text)
+        data['price'] = int(message.text)
     await AddAsset.next()
 
 
@@ -94,10 +95,11 @@ async def get_lot(message: types.Message, state=FSMContext):
 
 async def get_date_from_callback(callback: types.CallbackQuery, state=FSMContext):
     async with state.proxy() as data:
-        await sqlite_db.AssetsSQL.add_assets_transaction(figi=data['figi'],
+        await sqlite_db.AssetsSQL.add_assets_transaction(name=data['name'],
+                                                         figi=data['figi'],
                                                          person_id=callback.from_user.id,
                                                          is_buy_or_sell=data['is_buy_or_sell'],
-                                                         price=data['assets_price'],
+                                                         price=data['price'],
                                                          lot=data['lot'],
                                                          date_operation=callback.data
                                                          )
@@ -111,13 +113,68 @@ async def get_date_from_message(message: types.Message, state=FSMContext):
         await sqlite_db.AssetsSQL.add_assets_transaction(figi=data['figi'],
                                                 person_id=message.from_user.id,
                                                 is_buy_or_sell=data['is_buy_or_sell'],
-                                                price=data['assets_price'],
+                                                price=data['price'],
                                                 lot=data['lot'],
                                                 date_operation=message.text
                                                 )
 
         await message.answer('Готово!', reply_markup=kb_stock)
         await state.finish()
+
+
+class PersonAssetsPortfolio:
+
+    class CountAveragePriceAsset: #доработать
+        total_price = 0
+        total_profit_or_loss = 0
+
+        def __init__(self, buy_price, lot, current_price):
+            self.lot = lot
+            self.price_buy = buy_price * self.lot
+            self.current_price = current_price
+
+        def get_average_cost(self):
+            return round(self.price_buy / self.lot, 1)
+
+        def add_operation(self, buy_price, lot):
+            self.lot += lot
+            self.price_buy += lot * buy_price
+
+        def count_percent_from_average_to_current_price(self):
+            average_cost = self.get_average_cost()
+            return round(self.current_price / average_cost - 1, 1) * 100
+
+        def get_current_price_assets(self):
+            return round(self.current_price * self.lot)
+
+    @staticmethod
+    async def count_portfolio_cost(values):
+        person_assets = {}
+        for figi, is_buy_or_sell, buy_price, lot, operation_date in values:
+            if figi in person_assets.keys():
+                person_assets[figi].add_operation(buy_price, lot)
+            else:
+                current_price = await TinkoffAPI.get_last_price_asset(figi)
+                person_assets[figi] = PersonAssetsPortfolio.CountAveragePriceAsset(buy_price, lot, current_price)
+        return dict(sorted(person_assets.items(), key=lambda item: item[0], reverse=True))
+
+
+    @staticmethod
+    async def make_message_answer(person_assets):
+        message_answer = ''
+        for figi in person_assets.keys():
+            assets_info = await TinkoffAPI.get_instrument_info(figi=figi)
+            message_answer += f'{assets_info.instrument.name}   {person_assets[figi].get_current_price_assets()} ' \
+                              f'{assets_info.instrument.currency}   ' \
+                              f'{person_assets[figi].count_percent_from_average_to_current_price()} %\n'
+        return message_answer
+
+    @classmethod
+    async def get_portfolio_cost(cls, message: types.Message):
+        values = await sqlite_db.AssetsSQL.select_all_person_assets(message.from_user.id)
+        person_assets = await cls.count_portfolio_cost(values)
+        message_answer = await cls.make_message_answer(person_assets)
+        await message.answer(message_answer, reply_markup=kb_stock)
 
 
 async def start_stock_market_window(message: types.Message):
@@ -132,6 +189,8 @@ async def refresh_assets(message: types.Message): #фикс чтобы не до
 def register_handlers_stock_market(dp: Dispatcher):
     dp.register_message_handler(start_stock_market_window, Text(equals='фонда', ignore_case=True))
 
+    dp.register_message_handler(PersonAssetsPortfolio.get_portfolio_cost, Text(equals='Активы'))
+
     dp.register_message_handler(start_add_assets, Text(equals='внести операцию', ignore_case=True), state=None)
     dp.register_callback_query_handler(get_type_of_asset, state=AddAsset.type_of_asset)
     dp.register_message_handler(get_assets, state=AddAsset.num_of_asset)
@@ -141,6 +200,7 @@ def register_handlers_stock_market(dp: Dispatcher):
     dp.register_message_handler(get_lot, state=AddAsset.lot)
     dp.register_callback_query_handler(get_date_from_callback, state=AddAsset.date_operation)
     dp.register_message_handler(get_date_from_message, state=AddAsset.date_operation)
+
 
     dp.register_message_handler(refresh_assets, Text(equals='Обновить'))
 

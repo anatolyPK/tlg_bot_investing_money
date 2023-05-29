@@ -1,7 +1,7 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 
 
-b1 = KeyboardButton('Портфель')
+b1 = KeyboardButton('Активы')
 b2 = KeyboardButton('Внести операцию')
 b5 = KeyboardButton('Отмена')
 b3 = KeyboardButton('Обновить')

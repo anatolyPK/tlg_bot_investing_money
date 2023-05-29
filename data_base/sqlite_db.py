@@ -360,7 +360,7 @@ class AssetsSQL:
 
     @staticmethod
     @try_connect_sql
-    async def add_assets_transaction(figi, person_id, is_buy_or_sell, price, lot, date_operation) -> None:
+    async def add_assets_transaction(name, figi, person_id, is_buy_or_sell, price, lot, date_operation) -> None:
             query = f'INSERT INTO assets_transactions (figi, person_id, is_buy_or_sell, price, lot, date_operation) ' \
                     f'VALUES (?, ?, ?, ?, ?, ?)'
             values = (figi, person_id, is_buy_or_sell, price, lot, date_operation)
@@ -369,7 +369,16 @@ class AssetsSQL:
                     await curs.execute(query, values)
                 await base.commit()
 
-
+    @try_connect_sql
+    @staticmethod
+    async def select_all_person_assets(person_id):
+        query = f'SELECT figi, is_buy_or_sell, price, lot, date_operation FROM assets_transactions ' \
+                f'WHERE person_id = "{person_id}"'
+        async with sq.connect('data_base/crypto_transactions.db') as base:
+            async with base.cursor() as curs:
+                await curs.execute(query)
+                assets = await curs.fetchall()
+                return assets
 
 
 
