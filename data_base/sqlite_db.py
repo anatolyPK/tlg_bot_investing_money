@@ -336,7 +336,7 @@ class AssetsSQL:
             await base.commit()
 
     @staticmethod
-    async def get_assets_info(assets_type: str, ticker: str):
+    async def get_all_assets_info(assets_type: str, ticker: str):
         if assets_type == 'share':
             query = f'SELECT figi, name, currency, lot, country_of_risk, buy_available_flag, ' \
                     f'sell_available_flag, for_iis_flag, for_qual_investor_flag FROM all_shares ' \
@@ -379,6 +379,19 @@ class AssetsSQL:
                 await curs.execute(query)
                 assets = await curs.fetchall()
                 return assets
+
+    @try_connect_sql
+    @staticmethod
+    async def get_assets_info(figi: str, name_attribute: str):
+        for name_table in ['shares', 'bonds', 'etfs', 'currencies']:
+            query = f'SELECT {name_attribute} FROM all_{name_table} WHERE figi = "{figi}"'
+            async with sq.connect('data_base/crypto_transactions.db') as base:
+                async with base.cursor() as curs:
+                    await curs.execute(query)
+                    currency = await curs.fetchall()
+                    if currency:
+                        return currency[0][0]
+        return None
 
 
 

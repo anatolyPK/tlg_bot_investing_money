@@ -220,8 +220,8 @@ async def add_usdt_size(message: types.Message, state=FSMContext):
     async with state.proxy() as data:
         data['usdt_size'] = float(message.text)
         await sqlite_db.add_in_sql_rub_size(user_id=message.from_user.id, state=data)
-    await sqlite_db.sql_add_command(state=state, user_id=message.from_user.id, buy_or_sell_token=1, ticker1='usdt',
-                                    ticker2='rub', size=float(message.text), price=1)
+    await sqlite_db.sql_add_command(state=state, user_id=message.from_user.id, buy_or_sell=1, ticker_1='usdt',
+                                    ticker_2='rub', size=float(message.text), price=1)
     await state.finish()
     await message.answer('Операция добавлена!', reply_markup=kb_main_client)
 
