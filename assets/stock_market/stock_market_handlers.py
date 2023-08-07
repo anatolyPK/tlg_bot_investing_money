@@ -91,7 +91,7 @@ class AddAssets:
     @Decorators.retry('стоимость!')
     async def get_price(cls, message: types.Message, state=FSMContext):
         async with state.proxy() as data:
-            data['price'] = int(message.text)
+            data['price'] = float(message.text)
         await message.answer('Введите количество', reply_markup=kb_stop_add)
         await cls.AddAssetsState.next()
 
@@ -117,21 +117,30 @@ class AddAssets:
                                                              lot=data['lot'],
                                                              date_operation=callback.data
                                                              )
-
+            await sqlite_db.AssetsSQL.add_or_update_user_assets(person_id=callback.from_user.id,
+                                                                figi=data['figi'],
+                                                                lot=data['lot'],
+                                                                price=data['price']
+                                                                )
             await callback.message.answer('Готово!', reply_markup=kb_stock)
             await state.finish()
 
     @classmethod
     async def get_date_from_message(cls, message: types.Message, state=FSMContext):
         async with state.proxy() as data:
-            await sqlite_db.AssetsSQL.add_assets_transaction(figi=data['figi'],
+            await sqlite_db.AssetsSQL.add_assets_transaction(name=data['name'],
+                                                             figi=data['figi'],
                                                              person_id=message.from_user.id,
                                                              is_buy_or_sell=data['is_buy_or_sell'],
                                                              price=data['price'],
                                                              lot=data['lot'],
                                                              date_operation=message.text
                                                              )
-
+            await sqlite_db.AssetsSQL.add_or_update_user_assets(person_id=message.from_user.id,
+                                                                figi=data['figi'],
+                                                                lot=data['lot'],
+                                                                price=data['price']
+                                                                )
             await message.answer('Готово!', reply_markup=kb_stock)
             await state.finish()
 
@@ -148,10 +157,6 @@ class PersonAssetsPortfolio:
 
         def get_average_cost(self):
             return round(self.price_buy / self.lot, 1)
-
-        def add_operation(self, buy_price, lot):
-            self.lot += lot
-            self.price_buy += lot * buy_price
 
         def count_percent_from_average_to_current_price(self):
             average_cost = self.get_average_cost()
@@ -174,13 +179,10 @@ class PersonAssetsPortfolio:
     @staticmethod
     async def count_portfolio_cost(values):
         person_assets = {}
-        for figi, is_buy_or_sell, buy_price, lot, operation_date in values:
-            if figi in person_assets.keys():
-                person_assets[figi].add_operation(buy_price, lot)
-            else:
-                current_price = await TinkoffAPI.get_last_price_asset(figi)
-                currency = await sqlite_db.AssetsSQL.get_assets_info(figi, "currency")
-                person_assets[figi] = PersonAssetsPortfolio.CountPriceAsset(buy_price, lot, current_price, currency)
+        for figi, lot, average_price in values:
+            current_price = await TinkoffAPI.get_last_price_asset(figi)
+            currency = await sqlite_db.AssetsSQL.get_assets_info(figi, "currency")
+            person_assets[figi] = PersonAssetsPortfolio.CountPriceAsset(average_price, lot, current_price, currency)
         return dict(sorted(person_assets.items(), key=lambda item: item[0], reverse=True))
 
     @classmethod
@@ -195,14 +197,14 @@ class PersonAssetsPortfolio:
 
             if person_assets[figi].currency == 'rub':
                 investing_summ += person_assets[figi].get_average_cost() * person_assets[figi].lot
-                total_now_summ += person_assets[figi].get_current_price_assets() * person_assets[figi].lot
+                total_now_summ += now_assets_price
             elif person_assets[figi].currency == 'usd':
                 if not usd_rub_currency:
                     usd_rub_currency = await TinkoffAPI.get_last_price_asset('USD000UTSTOM')
                 investing_summ += person_assets[figi].get_average_cost() * usd_rub_currency * person_assets[figi].lot
-                total_now_summ += person_assets[figi].get_current_price_assets() * usd_rub_currency
+                total_now_summ += now_assets_price * usd_rub_currency
         profit = PersonAssetsPortfolio.CountPriceAsset.count_percent_profit(investing_summ, total_now_summ)
-        return f'Общая сумма - {total_now_summ} Руб {profit} %\n' + message_answer
+        return f'Общая сумма - {round(total_now_summ)} Руб {profit} %\n' + message_answer
 
     @classmethod
     async def get_portfolio_cost(cls, message: types.Message):
@@ -216,7 +218,7 @@ async def start_stock_market_window(message: types.Message):
     await message.answer('Выберите операцию!', reply_markup=kb_stock)
 
 
-async def refresh_assets(message: types.Message): #фикс чтобы не добавлялись еще раз
+async def refresh_assets(message: types.Message):
     await CreateAndUpdateAllAssets.update_all_assets()
     await message.answer('OK', reply_markup=kb_stock)
 

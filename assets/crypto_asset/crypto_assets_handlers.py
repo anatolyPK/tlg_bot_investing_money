@@ -1,5 +1,6 @@
 from aiogram import types, Dispatcher
-from keyboards import kb_main_client, kb_stop_add, buy_or_sell_token, token_sell_or_buy, add_history, kb_crypto_client
+from keyboards import kb_main_client, kb_stop_add, buy_or_sell_token, token_sell_or_buy, add_history, kb_crypto_client, \
+    generate_inline_keyboards
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
@@ -53,14 +54,21 @@ async def add_token_1(message: types.Message, state=FSMContext):
     async with state.proxy() as data:
         data['token_1'] = message.text.lower()
     await AddTransaction.next()
-    await message.answer('Введи второй токен', reply_markup=kb_stop_add)
+    await message.answer('Введи второй токен', reply_markup=generate_inline_keyboards([['USDT', 'usdt']]))
 
 
-async def add_token_2(message: types.Message, state=FSMContext):
+async def add_token_2_from_message(message: types.Message, state=FSMContext):
     async with state.proxy() as data:
         data['token_2'] = message.text.lower()
     await AddTransaction.next()
     await message.answer('Введи количество купленных монет', reply_markup=kb_stop_add)
+
+
+async def add_token_2_from_callback(callback: types.CallbackQuery, state=FSMContext):
+    async with state.proxy() as data:
+        data['token_2'] = callback.data
+    await AddTransaction.next()
+    await callback.message.answer('Введи количество купленных монет', reply_markup=kb_stop_add)
 
 
 @retry('количество')
@@ -86,7 +94,7 @@ async def add_token_price(message: types.Message, state=FSMContext):
                                     size=data['token_price']*data['token_size'],
                                     price=1/data['token_price'])
     await state.finish()
-    await message.answer('Готово!', reply_markup=kb_main_client)
+    await message.answer('Готово!', reply_markup=add_history)
 
 
 async def cancel_handler(message: types.Message, state=FSMContext):
@@ -223,7 +231,7 @@ async def add_usdt_size(message: types.Message, state=FSMContext):
     await sqlite_db.sql_add_command(state=state, user_id=message.from_user.id, buy_or_sell=1, ticker_1='usdt',
                                     ticker_2='rub', size=float(message.text), price=1)
     await state.finish()
-    await message.answer('Операция добавлена!', reply_markup=kb_main_client)
+    await message.answer('Операция добавлена!', reply_markup=add_history)
 
 
 async def start_crypto_operation(message: types.Message):
@@ -239,7 +247,8 @@ def register_handlers_crypto(dp: Dispatcher):#assets hadlers
     dp.register_message_handler(start_add_transaction, Text(equals='Добавить операцию', ignore_case=True), state=None)
     dp.register_message_handler(choose_buy_or_sell, state=AddTransaction.operation)
     dp.register_message_handler(add_token_1, state=AddTransaction.token_1)
-    dp.register_message_handler(add_token_2, state=AddTransaction.token_2)
+    dp.register_message_handler(add_token_2_from_message, state=AddTransaction.token_2)
+    dp.register_callback_query_handler(add_token_2_from_callback, state=AddTransaction.token_2)
     dp.register_message_handler(add_token_size, state=AddTransaction.token_size)
     dp.register_message_handler(add_token_price, state=AddTransaction.token_price)
 

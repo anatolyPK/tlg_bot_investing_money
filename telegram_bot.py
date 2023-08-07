@@ -2,7 +2,7 @@ from aiogram.utils import executor
 from create_bot import dp
 from data_base import sqlite_db
 from handlers import client, other
-from assets.deposits.apsched import schedulers
+from assets.apsched import schedulers
 
 
 async def on_startup(*args, **kwargs):

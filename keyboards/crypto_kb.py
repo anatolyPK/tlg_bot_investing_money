@@ -1,5 +1,4 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 stop_add_trans = KeyboardButton('Отмена')
 
@@ -22,9 +21,9 @@ add_history = ReplyKeyboardMarkup(resize_keyboard=True)
 add_history.row(key_1, key_2, key_3).add(stop_add_trans)
 
 
+
 b_1 = KeyboardButton('Портфель')
 b_2 = KeyboardButton('Операция/история')
 b_3 = KeyboardButton('Купить/Продать')
-b_4 = KeyboardButton('Курс')
 kb_crypto_client = ReplyKeyboardMarkup(resize_keyboard=True)
-kb_crypto_client.add(b_1).insert(b_2).add(b_3).insert(b_4).insert(stop_add_trans)
+kb_crypto_client.add(b_1).insert(b_2).add(b_3).insert(stop_add_trans)

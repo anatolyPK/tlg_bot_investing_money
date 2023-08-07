@@ -1,5 +1,4 @@
 import aiosqlite as sq
-# from create_bot import bot
 from APIs import current_price
 from collections import defaultdict
 from APIs.tinkoff_api.tinkoff_client import TinkoffAPI
@@ -39,20 +38,12 @@ async def sql_start():
                                'currency TEXT, name TEXT, lot INT, exchange TEXT, nominal FLOAT, country_of_risk TEXT, '
                                'min_price_increment FLOAT, buy_available_flag BIT, sell_available_flag BIT, '
                                'for_iis_flag BIT, for_qual_investor_flag BIT)')
+            await base.execute('CREATE TABLE IF NOT EXISTS user_assets(person_id INT, figi TEXT, lot INT, '
+                               'average_price FLOAT)')
 
             await base.commit()
 
 
-def try_connect_sql(func):
-    async def wrapper(*args, **kwargs):
-        try:
-            return await func(*args, **kwargs)
-        except ValueError as ex:
-            print(f'Ошибка при запросе к БД! \n {ex}!')
-    return wrapper
-
-
-@try_connect_sql
 async def sql_add_command(state, user_id: int, buy_or_sell: int = None, ticker_1: str = None, ticker_2: str = None,
                           size: float = None, price: float = None) -> None:
     async with state.proxy() as data:
@@ -66,18 +57,16 @@ async def sql_add_command(state, user_id: int, buy_or_sell: int = None, ticker_1
                 await base.commit()
 
 
-@try_connect_sql
 async def read_db(user_id: int) -> str:
     mes = ''
     async with sq.connect('data_base/crypto_transactions.db') as base:
         async with base.cursor() as curs:
-            await curs.execute('SELECT * FROM transactions WHERE person_id = ?', (user_id,))
+            await curs.execute('SELECT * FROM transactions WHERE person_id = ? ORDER BY date DESC LIMIT 50', (user_id,))
             async for row in curs:
                 mes += f'\n{"Покупка" if row[1] else "Продажа"} {row[2]} {row[3]} {row[4]} {row[5]} {row[6]}'
     return mes
 
 
-@try_connect_sql
 async def count_portfolio_cost(user_id: int) -> dict:
     ticker_cost = {}
     queue = 'SELECT ticker_1, buy_or_sell, size FROM transactions WHERE person_id = ?'
@@ -94,7 +83,6 @@ async def count_portfolio_cost(user_id: int) -> dict:
     return ticker_cost
 
 
-@try_connect_sql
 async def select_all_unique_person_id() -> list:
     async with sq.connect('data_base/crypto_transactions.db') as base:
         async with base.cursor() as curs:
@@ -104,7 +92,6 @@ async def select_all_unique_person_id() -> list:
     return unique_id
 
 
-@try_connect_sql
 async def add_in_sql_rub_size(user_id: int, state: dict) -> None:
     async with sq.connect('data_base/crypto_transactions.db') as base:
         async with base.cursor() as curs:
@@ -113,7 +100,6 @@ async def add_in_sql_rub_size(user_id: int, state: dict) -> None:
             await base.commit()
 
 
-@try_connect_sql
 async def count_all_investing(user_id: int) -> None:
     queue = 'SELECT SUM(size) as rub, SUM(usd) as usd FROM rub_investing WHERE person_id = ?'
     async with sq.connect('data_base/crypto_transactions.db') as base:
@@ -124,7 +110,6 @@ async def count_all_investing(user_id: int) -> None:
 
 
 # --------------------------DEPOSITS---------------------------------
-@try_connect_sql
 async def add_deposit(user_id: int, description, date_operation, percent, percent_capitalization) -> int:
         query = f'INSERT INTO main_deposits (person_id, description, date_open, percent, percent_capitalization) ' \
                 f'VALUES (?, ?, ?, ?, ?)'
@@ -136,7 +121,6 @@ async def add_deposit(user_id: int, description, date_operation, percent, percen
             return int(curs.lastrowid)
 
 
-@try_connect_sql
 async def add_deposit_transaction(user_id, id_deposit, size, is_add_or_take, date_operation) -> None:
         query = f'INSERT INTO deposit_transactions (person_id, id, size, is_add_or_take, date_operation) ' \
                 f'VALUES (?, ?, ?, ?, ?)'
@@ -147,7 +131,6 @@ async def add_deposit_transaction(user_id, id_deposit, size, is_add_or_take, dat
             await base.commit()
 
 
-@try_connect_sql
 async def select_all_person_deposits(user_id: int) -> list:
     async with sq.connect('data_base/crypto_transactions.db') as base:
         async with base.cursor() as curs:
@@ -157,7 +140,6 @@ async def select_all_person_deposits(user_id: int) -> list:
     return id_and_description
 
 
-@try_connect_sql
 async def count_deposits_money(user_id):
     dict_descr_and_size = defaultdict(int)
     async with sq.connect('data_base/crypto_transactions.db') as base:
@@ -171,7 +153,6 @@ async def count_deposits_money(user_id):
     return dict_descr_and_size
 
 
-@try_connect_sql
 async def update_new_percent(user_id, new_percent, deposit_id):
     async with sq.connect('data_base/crypto_transactions.db') as base:
         async with base.cursor() as curs:
@@ -180,7 +161,6 @@ async def update_new_percent(user_id, new_percent, deposit_id):
         await base.commit()
 
 
-@try_connect_sql
 async def update_close_deposit(user_id, deposit_id):
     async with sq.connect('data_base/crypto_transactions.db') as base:
         async with base.cursor() as curs:
@@ -188,7 +168,6 @@ async def update_close_deposit(user_id, deposit_id):
         await base.commit()
 
 
-@try_connect_sql
 async def select_person_deposits_for_capitalization(user_id: int) -> list:
     async with sq.connect('data_base/crypto_transactions.db') as base:
         async with base.cursor() as curs:
@@ -199,7 +178,6 @@ async def select_person_deposits_for_capitalization(user_id: int) -> list:
     return data
 
 
-@try_connect_sql
 async def select_all_uniqle_person_id_for_capitalization():
     async with sq.connect('data_base/crypto_transactions.db') as base:
         async with base.cursor() as curs:
@@ -350,7 +328,9 @@ class AssetsSQL:
                     f'sell_available_flag, for_iis_flag, for_qual_investor_flag FROM all_etfs ' \
                     f'WHERE ticker = "{ticker.upper()}"'
         else:
-            query = f'SELECT figi, name, lot, buy_available_flag, sell_available_flag, for_iis_flag, ' \
+            if ticker.upper() == "USD":
+                ticker = 'USD000UTSTOM'
+            query = f'SELECT figi, name, currency lot, buy_available_flag, sell_available_flag, for_iis_flag, ' \
                     f'for_qual_investor_flag FROM all_currencies WHERE ticker = "{ticker.upper()}"'
         async with sq.connect('data_base/crypto_transactions.db') as base:
             async with base.cursor() as curs:
@@ -359,7 +339,6 @@ class AssetsSQL:
                 return assets
 
     @staticmethod
-    @try_connect_sql
     async def add_assets_transaction(name, figi, person_id, is_buy_or_sell, price, lot, date_operation) -> None:
             query = f'INSERT INTO assets_transactions (figi, person_id, is_buy_or_sell, price, lot, date_operation) ' \
                     f'VALUES (?, ?, ?, ?, ?, ?)'
@@ -369,20 +348,18 @@ class AssetsSQL:
                     await curs.execute(query, values)
                 await base.commit()
 
-    @try_connect_sql
     @staticmethod
     async def select_all_person_assets(person_id):
-        query = f'SELECT figi, is_buy_or_sell, price, lot, date_operation FROM assets_transactions ' \
-                f'WHERE person_id = "{person_id}"'
+        query = f'SELECT figi, lot, average_price date_operation FROM user_assets WHERE person_id = "{person_id}"'
         async with sq.connect('data_base/crypto_transactions.db') as base:
             async with base.cursor() as curs:
                 await curs.execute(query)
                 assets = await curs.fetchall()
                 return assets
 
-    @try_connect_sql
     @staticmethod
     async def get_assets_info(figi: str, name_attribute: str):
+        """Return 1 column values from any assets table"""
         for name_table in ['shares', 'bonds', 'etfs', 'currencies']:
             query = f'SELECT {name_attribute} FROM all_{name_table} WHERE figi = "{figi}"'
             async with sq.connect('data_base/crypto_transactions.db') as base:
@@ -393,5 +370,22 @@ class AssetsSQL:
                         return currency[0][0]
         return None
 
-
+    @staticmethod
+    async def add_or_update_user_assets(person_id: int, figi: str, lot: int, price: float):
+        query = f'SELECT lot, average_price FROM user_assets WHERE figi = "{figi}" AND person_id = {person_id}'
+        async with sq.connect('data_base/crypto_transactions.db') as base:
+            async with base.cursor() as curs:
+                await curs.execute(query)
+                values_from_sql = await curs.fetchall()
+                if values_from_sql:
+                    from_table_lot, average_price = values_from_sql[0]
+                    new_average_price = round((from_table_lot * average_price + lot * price) / (lot+from_table_lot), 1)
+                    query = f'UPDATE user_assets SET lot = {lot + from_table_lot}, average_price = {new_average_price} ' \
+                            f'WHERE person_id = "{person_id}" AND figi = "{figi}"'
+                    await curs.execute(query)
+                else:
+                    query = f'INSERT INTO user_assets(person_id, figi, lot, average_price) VALUES (?, ?, ?, ?)'
+                    values = (person_id, figi, lot, price)
+                    await curs.execute(query, values)
+            await base.commit()
 

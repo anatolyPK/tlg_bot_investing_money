@@ -4,7 +4,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardBut
 b1 = KeyboardButton('Активы')
 b2 = KeyboardButton('Внести операцию')
 b5 = KeyboardButton('Отмена')
-b3 = KeyboardButton('Обновить')
+b3 = KeyboardButton('Обновить БД')
 kb_stock = ReplyKeyboardMarkup(resize_keyboard=True)
 kb_stock.add(b1).insert(b2).add(b5).insert(b3)
 

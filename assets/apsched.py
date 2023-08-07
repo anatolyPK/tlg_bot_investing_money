@@ -1,4 +1,5 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from APIs.tinkoff_api.tinkoff_client import CreateAndUpdateAllAssets
 from data_base import sqlite_db
 from datetime import datetime
 
@@ -23,5 +24,10 @@ async def daily_check_percent_capitalization():
                 await sqlite_db.add_deposit_transaction(person_id, deposit_id, size, 1,
                                                         datetime.strftime(date_now, '%d.%m.%Y'))
 
+
+async def sql_refresh_assets():
+    await CreateAndUpdateAllAssets.update_all_assets()
+
 schedulers = AsyncIOScheduler(timezone='Asia/Vladivostok')
 schedulers.add_job(daily_check_percent_capitalization, trigger='cron', hour=21, minute=55)
+schedulers.add_job(sql_refresh_assets, trigger='cron', hour=23, minute=55)

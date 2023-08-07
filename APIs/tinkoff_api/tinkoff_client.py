@@ -1,6 +1,7 @@
 import asyncio
 import os
-from tinkoff.invest import AsyncClient, Client, InstrumentRequest, InstrumentIdType
+from tinkoff.invest import AsyncClient, Client, InstrumentRequest, InstrumentIdType, SubscriptionInterval, \
+    SubscriptionAction, SubscribeCandlesRequest, CandleInstrument, MarketDataRequest
 from dotenv import load_dotenv
 from data_base import sqlite_db
 
@@ -21,12 +22,6 @@ class TinkoffAPI:
             value = await client.market_data.get_last_prices(figi=[figi])
             return cls.cast_money(value.last_prices[0].price)
 
-    # @staticmethod
-    # async def find_instrument(strin: str):
-    #     async with AsyncClient(TOKEN) as client:
-    #         value = await client.instruments.bonds()
-    #         return value
-    #
     @staticmethod
     async def get_instrument_info(figi: str = None, ticker: str = None, class_code: str = None):
         async with AsyncClient(TOKEN) as client:
@@ -70,5 +65,31 @@ class CreateAndUpdateAllAssets:
         await cls.__update_all_etfs()
         await cls.__update_all_currencies()
 
-
-
+#
+# class MarketStream:
+#     @staticmethod
+#     async def market_data():
+#         async def request_iterator():
+#             yield MarketDataRequest(
+#                 subscribe_candles_request=SubscribeCandlesRequest(
+#                     subscription_action=SubscriptionAction.SUBSCRIPTION_ACTION_SUBSCRIBE,
+#                     instruments=[
+#                         CandleInstrument(
+#                             figi="BBG004730N88",
+#                             interval=SubscriptionInterval.SUBSCRIPTION_INTERVAL_FIVE_MINUTES,
+#                         )
+#                     ],
+#                 )
+#             )
+#             while True:
+#                 await asyncio.sleep(1)
+#
+#         async with AsyncClient(TOKEN) as client:
+#             async for marketdata in client.market_data_stream.market_data_stream(
+#                     request_iterator()
+#             ):
+#                 print(marketdata)
+#
+#
+# if __name__ == '__main__':
+#     asyncio.run(MarketStream.market_data())
